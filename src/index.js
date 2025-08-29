@@ -3,7 +3,7 @@ import dotenv from 'dotenv'
 import express from 'express'
 import { KJUR } from 'jsrsasign'
 import { inNumberArray, isBetween, isRequiredAllOrNone, validateRequest } from './validations.js'
-import { getZak } from "./zoomAuth.js";
+import { getZak } from './zoomAuth.js'
 
 dotenv.config()
 const app = express()
@@ -28,23 +28,19 @@ const coerceRequestBody = (body) => ({
   )
 })
 
-app.post("/", async (req, res) => {
+app.post('/', async (req, res) => {
   try {
-    const requestBody = coerceRequestBody(req.body);
-    const validationErrors = validateRequest(
-      requestBody,
-      propValidations,
-      schemaValidations
-    );
+    const requestBody = coerceRequestBody(req.body)
+    const validationErrors = validateRequest(requestBody, propValidations, schemaValidations)
 
     if (validationErrors.length > 0) {
-      return res.status(400).json({ errors: validationErrors });
+      return res.status(400).json({ errors: validationErrors })
     }
 
-    const { meetingNumber, role, expirationSeconds, videoWebRtcMode } = requestBody;
-    const iat = Math.floor(Date.now() / 1000);
-    const exp = expirationSeconds ? iat + expirationSeconds : iat + 60 * 60 * 2;
-    const oHeader = { alg: "HS256", typ: "JWT" };
+    const { meetingNumber, role, expirationSeconds, videoWebRtcMode } = requestBody
+    const iat = Math.floor(Date.now() / 1000)
+    const exp = expirationSeconds ? iat + expirationSeconds : iat + 60 * 60 * 2
+    const oHeader = { alg: 'HS256', typ: 'JWT' }
 
     const oPayload = {
       appKey: process.env.ZOOM_MEETING_SDK_KEY,
@@ -54,33 +50,28 @@ app.post("/", async (req, res) => {
       iat,
       exp,
       tokenExp: exp,
-      video_webrtc_mode: videoWebRtcMode,
-    };
+      video_webrtc_mode: videoWebRtcMode
+    }
 
-    const sHeader = JSON.stringify(oHeader);
-    const sPayload = JSON.stringify(oPayload);
-    const sdkJWT = KJUR.jws.JWS.sign(
-      "HS256",
-      sHeader,
-      sPayload,
-      process.env.ZOOM_MEETING_SDK_SECRET
-    );
+    const sHeader = JSON.stringify(oHeader)
+    const sPayload = JSON.stringify(oPayload)
+    const sdkJWT = KJUR.jws.JWS.sign('HS256', sHeader, sPayload, process.env.ZOOM_MEETING_SDK_SECRET)
 
     // Fetch ZAK only for host (role = 1)
-    let zakToken = null;
+    let zakToken = null
     if (role === 1) {
-      zakToken = await getZak("me");
+      zakToken = await getZak('me')
     }
 
     return res.json({
       signature: sdkJWT,
       sdkKey: process.env.ZOOM_MEETING_SDK_KEY,
-      zak: zakToken,
-    });
+      zak: zakToken
+    })
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error(err)
+    res.status(500).json({ error: err.message })
   }
-});
+})
 
 app.listen(port, () => console.log(`Zoom Meeting SDK Auth Endpoint Sample Node.js, listening on port ${port}!`))
