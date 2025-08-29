@@ -59,8 +59,8 @@ app.post('/', async (req, res) => {
 
     // Fetch ZAK only for host (role = 1)
     let zakToken = null
-    if (role === 1) {
-      zakToken = await getZak('me')
+    if (role === 1 && requestBody.userEmail) {
+      zakToken = await getZak(requestBody.userEmail);
     }
 
     return res.json({
