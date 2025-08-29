@@ -1,5 +1,3 @@
-import fetch from 'node-fetch'
-
 let cachedToken = null
 let cachedExpiry = 0
 
