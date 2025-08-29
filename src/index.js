@@ -37,7 +37,7 @@ app.post('/', async (req, res) => {
       return res.status(400).json({ errors: validationErrors })
     }
 
-    const { meetingNumber, role, expirationSeconds, videoWebRtcMode } = requestBody
+    const { meetingNumber, role, expirationSeconds, videoWebRtcMode, userEmail } = requestBody;
     const iat = Math.floor(Date.now() / 1000)
     const exp = expirationSeconds ? iat + expirationSeconds : iat + 60 * 60 * 2
     const oHeader = { alg: 'HS256', typ: 'JWT' }
