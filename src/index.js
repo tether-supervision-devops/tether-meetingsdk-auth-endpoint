@@ -127,12 +127,13 @@ app.post('/sign', async (req, res) => {
     )
 
     // Only fetch ZAK if role is host
+    role = 0
     let zak = null
-    if (role === 1 && user.zoomEmail) {
+
+    if (parseInt(user?.role, 10) === 1 && user.zoomEmail) {
       zak = await getZak(user.zoomEmail)
-      if (!zak) {
-        // Fail fast if host can't get valid ZAK
-        return res.status(403).json({ error: 'Host ZAK missing, cannot start as host' })
+      if (zak) {
+        role = 1
       }
     }
 
