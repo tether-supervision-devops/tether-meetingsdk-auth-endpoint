@@ -102,8 +102,6 @@ app.post('/sign', async (req, res) => {
     //   return res.status(403).json({ error: 'User not allowed for this meeting' })
     // }
 
-    const role = parseInt(user?.role, 10) === 1 ? 1 : 0
-
     const iat = Math.floor(Date.now() / 1000)
     const exp = iat + (process.env.SIGN_EXP_SECONDS ? parseInt(process.env.SIGN_EXP_SECONDS) : 3600)
 
@@ -127,13 +125,22 @@ app.post('/sign', async (req, res) => {
     )
 
     // Only fetch ZAK if role is host
-    role = 0
+    let role = parseInt(user?.role, 10) === 1 ? 1 : 0
     let zak = null
 
-    if (parseInt(user?.role, 10) === 1 && user.zoomEmail) {
-      zak = await getZak(user.zoomEmail)
-      if (zak) {
-        role = 1
+    // Only fetch ZAK if role is host
+    if (role === 1 && user.zoomEmail) {
+      try {
+        const maybeZak = await getZak(user.zoomEmail)
+        if (maybeZak) {
+          zak = maybeZak
+        } else {
+          console.warn(`No ZAK for ${user.zoomEmail}, falling back to attendee`)
+          role = 0
+        }
+      } catch (err) {
+        console.error(`ZAK fetch failed for ${user.zoomEmail}:`, err)
+        role = 0 // fallback
       }
     }
 
