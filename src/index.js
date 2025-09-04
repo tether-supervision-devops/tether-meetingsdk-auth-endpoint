@@ -102,6 +102,10 @@ app.post('/sign', async (req, res) => {
     //   return res.status(403).json({ error: 'User not allowed for this meeting' })
     // }
 
+    // Only fetch ZAK if role is host
+    let role = parseInt(user?.role, 10) === 1 ? 1 : 0
+    let zak = null
+
     const iat = Math.floor(Date.now() / 1000)
     const exp = iat + (process.env.SIGN_EXP_SECONDS ? parseInt(process.env.SIGN_EXP_SECONDS) : 3600)
 
@@ -123,10 +127,6 @@ app.post('/sign', async (req, res) => {
       JSON.stringify(oPayload),
       process.env.ZOOM_MEETING_SDK_SECRET
     )
-
-    // Only fetch ZAK if role is host
-    let role = parseInt(user?.role, 10) === 1 ? 1 : 0
-    let zak = null
 
     // Only fetch ZAK if role is host
     if (role === 1 && user.zoomEmail) {
