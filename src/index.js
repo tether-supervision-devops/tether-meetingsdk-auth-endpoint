@@ -78,7 +78,7 @@ async function getUserByUUID(uuid) {
 
   const user = data.records[0]
   return {
-    role: user.Role, // int: 0 attendee, 1 host
+    role: user.Role ?? 0, // int: 0 attendee, 1 host
     zoomEmail: user.ZoomEmail || null // needed for ZAK if host
     // allowedMeetings: user.AllowedMeetings || [] // array of meeting numbers
   }
