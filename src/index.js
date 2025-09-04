@@ -143,12 +143,14 @@ app.post('/sign', async (req, res) => {
         role = 0 // fallback
       }
     }
-
-    return res.json({
+    const payload = {
       signature,
-      sdkKey: process.env.ZOOM_MEETING_SDK_KEY,
-      ...(zak ? { zak } : {})
-    })
+      sdkKey: process.env.ZOOM_MEETING_SDK_KEY
+    }
+    if (role === 1 && zak) {
+      payload.zak = zak
+    }
+    return res.json(payload)
   } catch (err) {
     console.error('Sign error:', err.message || err)
     return res.status(500).json({ error: 'Internal server error' })
