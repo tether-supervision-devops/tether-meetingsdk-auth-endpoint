@@ -78,8 +78,8 @@ async function getUserByUUID(uuid) {
   const user = data.records[0]
   return {
     role: user.Role, // int: 0 attendee, 1 host
-    zoomEmail: user.ZoomEmail || null, // needed for ZAK if host
-    allowedMeetings: user.AllowedMeetings || [] // array of meeting numbers
+    zoomEmail: user.ZoomEmail || null // needed for ZAK if host
+    // allowedMeetings: user.AllowedMeetings || [] // array of meeting numbers
   }
 }
 
@@ -97,9 +97,9 @@ app.post('/sign', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unknown user' })
 
     const mn = String(meetingNumber)
-    if (!user.allowedMeetings.map(String).includes(mn)) {
-      return res.status(403).json({ error: 'User not allowed for this meeting' })
-    }
+    // if (!user.allowedMeetings.map(String).includes(mn)) {
+    //   return res.status(403).json({ error: 'User not allowed for this meeting' })
+    // }
 
     const role = Number(user.role) === 1 ? 1 : 0
 
