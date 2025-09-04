@@ -78,7 +78,7 @@ async function getUserByUUID(uuid) {
 
   const user = data.records[0]
   return {
-    role: user.Role ?? 0, // int: 0 attendee, 1 host
+    role: parseInt(user.Role, 10) === 1 ? 1 : 0, // fallback attendee
     zoomEmail: user.ZoomEmail || null // needed for ZAK if host
     // allowedMeetings: user.AllowedMeetings || [] // array of meeting numbers
   }
@@ -102,7 +102,7 @@ app.post('/sign', async (req, res) => {
     //   return res.status(403).json({ error: 'User not allowed for this meeting' })
     // }
 
-    const role = Number(user.role) === 1 ? 1 : 0
+    const role = parseInt(user?.role, 10) === 1 ? 1 : 0
 
     const iat = Math.floor(Date.now() / 1000)
     const exp = iat + (process.env.SIGN_EXP_SECONDS ? parseInt(process.env.SIGN_EXP_SECONDS) : 3600)
