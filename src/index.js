@@ -200,23 +200,23 @@ app.post('/sign', async (req, res) => {
       console.log('[SIGN] Skipping ZAK fetch (role not host or no zoomEmail)')
     }
 
-    // build payload
+    // ✅ Build payload without zak by default
     const payload = {
       signature,
       sdkKey: process.env.ZOOM_MEETING_SDK_KEY
     }
 
+    // ✅ Only attach zak if it's a valid, non-empty string
     if (role === 1 && typeof zak === 'string' && zak.trim() !== '') {
       payload.zak = zak
       console.log('[SIGN] Returning ZAK in payload')
     } else {
-      // 🔒 forcefully strip zak if invalid
-      delete payload.zak
       console.log('[SIGN] No ZAK in payload')
     }
 
     console.log(`[SIGN RESPONSE] uuid=${uuid}, finalRole=${role}, hasZak=${!!zak}`)
-    return res.json(payload)
+    // Use res.json with replacer to strip undefined/null just in case
+    return res.json(JSON.parse(JSON.stringify(payload)))
   } catch (err) {
     console.error('[SIGN] Error:', err.message || err)
     return res.status(500).json({ error: 'Internal server error' })
