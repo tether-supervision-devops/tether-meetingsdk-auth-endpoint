@@ -207,7 +207,7 @@ app.post('/sign', async (req, res) => {
     }
 
     console.log(`[SIGN RESPONSE] uuid=${uuid}, finalRole=${role}, hasZak=${!!zak}`)
-    return res.json(JSON.parse(JSON.stringify(payload)))
+    return res.json(payload)
   } catch (err) {
     console.error('[SIGN] Error:', err.message || err)
     return res.status(500).json({ error: 'Internal server error' })
