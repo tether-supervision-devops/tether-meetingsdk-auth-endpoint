@@ -62,35 +62,44 @@ const SignSchema = z.object({
 
 // ========== Adalo lookup ==========
 async function getUserByUUID(uuid) {
-  console.log(`[Adalo] Fetching user with UUID=${uuid}`)
-  const url = `https://api.adalo.com/v0/apps/${process.env.ADALO_APP_ID}/collections/${process.env.ADALO_COLLECTION_ID}?filters[UUID]=${uuid}`
+  const safeUUID = String(uuid).trim()
+  console.log(`[Adalo] Fetching user with UUID=${safeUUID}`)
+
+  const url =
+    `https://api.adalo.com/v0/apps/${process.env.ADALO_APP_ID}` +
+    `/collections/${process.env.ADALO_COLLECTION_ID}` +
+    `?filterKey=UUID&filterValue=${encodeURIComponent(safeUUID)}&limit=1`
+
   const res = await fetch(url, {
     headers: {
       Authorization: `Bearer ${process.env.ADALO_API_KEY}`,
       'Content-Type': 'application/json'
     }
   })
+
   if (!res.ok) {
-    console.error('[Adalo] Lookup failed', await res.text())
+    const txt = await res.text().catch(() => '')
+    console.error('[Adalo] Lookup failed:', txt)
     return null
   }
 
-  const data = await res.json()
+  const data = await res.json().catch(() => ({}))
   if (!data.records || data.records.length === 0) {
-    console.warn('[Adalo] No records found for UUID:', uuid)
+    console.warn(`[Adalo] No record found for UUID=${safeUUID}`)
     return null
   }
 
   const user = data.records[0]
-  console.log('[Adalo] Relevant user record:', {
+  console.log('[Adalo] Relevant record:', {
     id: user.id,
+    UUID: user.UUID,
     Email: user.Email,
     Role: user.Role,
     AppRole: user['App Role'],
     ZoomEmail: user.ZoomEmail
   })
 
-  // Normalize role: support either Role or App Role array
+  // Normalize role: only host if Role === 1 OR App Role includes 1
   let role = 0
   if (user.Role !== undefined && Number(user.Role) === 1) {
     role = 1
@@ -98,13 +107,9 @@ async function getUserByUUID(uuid) {
     role = 1
   }
 
-  const zoomEmail = user.ZoomEmail && String(user.ZoomEmail).trim() ? user.ZoomEmail : null
+  const zoomEmail = user.ZoomEmail && String(user.ZoomEmail).trim() ? String(user.ZoomEmail).trim() : null
 
-  console.log(
-    `[Adalo] Normalized role=${role}, raw Role=${user.Role}, raw AppRole=${JSON.stringify(
-      user['App Role']
-    )}, zoomEmail=${zoomEmail}`
-  )
+  console.log(`[Adalo] Normalized role=${role}, zoomEmailPresent=${!!zoomEmail}`)
 
   return { role, zoomEmail }
 }
