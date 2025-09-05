@@ -62,6 +62,7 @@ const SignSchema = z.object({
 
 // ========== Adalo lookup ==========
 async function getUserByUUID(uuid) {
+  console.log(`[Adalo] Fetching user with UUID=${uuid}`)
   const url = `https://api.adalo.com/v0/apps/${process.env.ADALO_APP_ID}/collections/${process.env.ADALO_COLLECTION_ID}?filters[UUID]=${uuid}`
   const res = await fetch(url, {
     headers: {
@@ -70,39 +71,56 @@ async function getUserByUUID(uuid) {
     }
   })
   if (!res.ok) {
-    console.error('Adalo lookup failed', await res.text())
+    console.error('[Adalo] Lookup failed', await res.text())
     return null
   }
   const data = await res.json()
-  if (!data.records || data.records.length === 0) return null
+  console.log('[Adalo] Raw response:', JSON.stringify(data, null, 2))
+
+  if (!data.records || data.records.length === 0) {
+    console.warn('[Adalo] No records found for UUID:', uuid)
+    return null
+  }
 
   const user = data.records[0]
+  console.log('[Adalo] User record:', user)
 
-  // ✅ Strict role check: only "1" is host, everything else = attendee (0)
+  // Normalize role
   const role = user.Role !== undefined && String(user.Role).trim() === '1' ? 1 : 0
+  const zoomEmail = user.ZoomEmail && String(user.ZoomEmail).trim() ? user.ZoomEmail : null
 
-  return {
-    role,
-    zoomEmail: user.ZoomEmail && String(user.ZoomEmail).trim() ? user.ZoomEmail : null
-  }
+  console.log(`[Adalo] Normalized role=${role} (raw Role=${user.Role}), zoomEmail=${zoomEmail}`)
+
+  return { role, zoomEmail }
 }
 
 // ========== Route ==========
 app.post('/sign', async (req, res) => {
   try {
+    console.log('[SIGN] Incoming body:', req.body)
+
     const parsed = SignSchema.safeParse(req.body)
     if (!parsed.success) {
+      console.error('[SIGN] Schema validation failed:', parsed.error.issues)
       return res.status(400).json({ error: 'Invalid body', details: parsed.error.issues })
     }
 
     const { uuid, meetingNumber, videoWebRtcMode } = parsed.data
+    console.log(
+      `[SIGN] Parsed request: uuid=${uuid}, meetingNumber=${meetingNumber}, videoWebRtcMode=${videoWebRtcMode}`
+    )
+
     const user = await getUserByUUID(uuid)
+    if (!user) {
+      console.warn('[SIGN] Unknown user for uuid=', uuid)
+      return res.status(401).json({ error: 'Unknown user' })
+    }
 
-    if (!user) return res.status(401).json({ error: 'Unknown user' })
-
-    let role = user.role // role straight from DB (already defaulted to 0)
+    let role = user.role
     let zak = null
     const mn = String(meetingNumber)
+
+    console.log(`[SIGN] Starting role=${role}, zoomEmail=${user.zoomEmail}`)
 
     const iat = Math.floor(Date.now() / 1000)
     const exp = iat + (process.env.SIGN_EXP_SECONDS ? parseInt(process.env.SIGN_EXP_SECONDS) : 3600)
@@ -126,19 +144,23 @@ app.post('/sign', async (req, res) => {
       process.env.ZOOM_MEETING_SDK_SECRET
     )
 
-    // ✅ Only fetch ZAK if role === 1 AND zoomEmail exists
+    // Only fetch ZAK if DB says host
     if (role === 1 && user.zoomEmail) {
+      console.log(`[SIGN] Attempting ZAK fetch for email=${user.zoomEmail}`)
       try {
         const maybeZak = await getZak(user.zoomEmail)
+        console.log('[SIGN] getZak result:', maybeZak)
+
         if (typeof maybeZak === 'string' && maybeZak.trim() !== '') {
           zak = maybeZak
+          console.log('[SIGN] ✅ ZAK assigned')
         } else {
-          console.warn(`Empty/invalid ZAK for ${user.zoomEmail}, demoting to attendee`)
+          console.warn('[SIGN] ❌ Empty/invalid ZAK, demoting to attendee')
           role = 0
           zak = null
         }
       } catch (err) {
-        console.error(`ZAK fetch failed for ${user.zoomEmail}:`, err)
+        console.error(`[SIGN] ZAK fetch failed for ${user.zoomEmail}:`, err)
         role = 0
         zak = null
       }
@@ -152,22 +174,27 @@ app.post('/sign', async (req, res) => {
           JSON.stringify(oPayload),
           process.env.ZOOM_MEETING_SDK_SECRET
         )
+        console.log('[SIGN] Signature regenerated as attendee')
       }
+    } else {
+      console.log('[SIGN] Skipping ZAK fetch (role not host or no zoomEmail)')
     }
 
-    // final response
     const payload = {
       signature,
       sdkKey: process.env.ZOOM_MEETING_SDK_KEY
     }
     if (role === 1 && zak) {
       payload.zak = zak
+      console.log('[SIGN] Returning ZAK in payload')
+    } else {
+      console.log('[SIGN] No ZAK in payload')
     }
 
-    console.log(`[SIGN RESPONSE] uuid=${uuid}, role=${role}, hasZak=${!!zak}`)
+    console.log(`[SIGN RESPONSE] uuid=${uuid}, finalRole=${role}, hasZak=${!!zak}`)
     return res.json(payload)
   } catch (err) {
-    console.error('Sign error:', err.message || err)
+    console.error('[SIGN] Error:', err.message || err)
     return res.status(500).json({ error: 'Internal server error' })
   }
 })
