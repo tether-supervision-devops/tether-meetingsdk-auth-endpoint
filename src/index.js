@@ -78,16 +78,12 @@ async function getUserByUUID(uuid) {
 
   const user = data.records[0]
 
-  // ✅ Default to 0 unless role is explicitly 1
-  let role = 0
-  if (user.Role !== undefined && String(user.Role).trim() === '1') {
-    role = 1
-  }
+  // ✅ Strict role check: only "1" is host, everything else = attendee (0)
+  const role = user.Role !== undefined && String(user.Role).trim() === '1' ? 1 : 0
 
   return {
     role,
-    zoomEmail: user.ZoomEmail || null
-    // allowedMeetings: user.AllowedMeetings || []
+    zoomEmail: user.ZoomEmail && String(user.ZoomEmail).trim() ? user.ZoomEmail : null
   }
 }
 
@@ -104,10 +100,9 @@ app.post('/sign', async (req, res) => {
 
     if (!user) return res.status(401).json({ error: 'Unknown user' })
 
-    const mn = String(meetingNumber)
-
-    let role = user.role === 1 ? 1 : 0 // start with DB role
+    let role = user.role // role straight from DB (already defaulted to 0)
     let zak = null
+    const mn = String(meetingNumber)
 
     const iat = Math.floor(Date.now() / 1000)
     const exp = iat + (process.env.SIGN_EXP_SECONDS ? parseInt(process.env.SIGN_EXP_SECONDS) : 3600)
@@ -131,13 +126,12 @@ app.post('/sign', async (req, res) => {
       process.env.ZOOM_MEETING_SDK_SECRET
     )
 
-    // Only fetch ZAK if DB says host
+    // ✅ Only fetch ZAK if role === 1 AND zoomEmail exists
     if (role === 1 && user.zoomEmail) {
       try {
         const maybeZak = await getZak(user.zoomEmail)
-
         if (typeof maybeZak === 'string' && maybeZak.trim() !== '') {
-          zak = maybeZak // ✅ host confirmed
+          zak = maybeZak
         } else {
           console.warn(`Empty/invalid ZAK for ${user.zoomEmail}, demoting to attendee`)
           role = 0
@@ -166,7 +160,6 @@ app.post('/sign', async (req, res) => {
       signature,
       sdkKey: process.env.ZOOM_MEETING_SDK_KEY
     }
-
     if (role === 1 && zak) {
       payload.zak = zak
     }
