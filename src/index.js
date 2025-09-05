@@ -204,7 +204,7 @@ app.post('/sign', async (req, res) => {
       signature,
       sdkKey: process.env.ZOOM_MEETING_SDK_KEY
     }
-    if (role === 1 && zak) {
+    if (role === 1 && typeof zak === 'string' && zak.trim() !== '') {
       payload.zak = zak
       console.log('[SIGN] Returning ZAK in payload')
     } else {
