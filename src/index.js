@@ -132,11 +132,14 @@ app.post('/sign', async (req, res) => {
     if (role === 1 && user.zoomEmail) {
       try {
         const maybeZak = await getZak(user.zoomEmail)
-        if (maybeZak) {
+
+        if (maybeZak && typeof maybeZak === 'string' && maybeZak.trim() !== '') {
+          // ✅ valid host
           zak = maybeZak
         } else {
-          console.warn(`No ZAK for ${user.zoomEmail}, falling back to attendee`)
+          console.warn(`Invalid/empty ZAK for ${user.zoomEmail}, forcing attendee`)
           role = 0
+          zak = null
 
           // regenerate signature with attendee role
           oPayload.role = 0
@@ -150,6 +153,7 @@ app.post('/sign', async (req, res) => {
       } catch (err) {
         console.error(`ZAK fetch failed for ${user.zoomEmail}:`, err)
         role = 0
+        zak = null
 
         // regenerate signature with attendee role
         oPayload.role = 0
@@ -161,10 +165,14 @@ app.post('/sign', async (req, res) => {
         )
       }
     }
+
+    // build response payload
     const payload = {
       signature,
       sdkKey: process.env.ZOOM_MEETING_SDK_KEY
     }
+
+    // only attach zak if we’re truly host
     if (role === 1 && zak) {
       payload.zak = zak
     }
