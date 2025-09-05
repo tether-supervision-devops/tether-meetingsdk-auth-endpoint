@@ -121,7 +121,7 @@ app.post('/sign', async (req, res) => {
       video_webrtc_mode: videoWebRtcMode
     }
 
-    const signature = KJUR.jws.JWS.sign(
+    let signature = KJUR.jws.JWS.sign(
       'HS256',
       JSON.stringify(oHeader),
       JSON.stringify(oPayload),
