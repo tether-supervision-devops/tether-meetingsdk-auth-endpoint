@@ -195,7 +195,8 @@ app.post('/sign', async (req, res) => {
     // Build payload (no zak by default)
     const payload = {
       signature,
-      sdkKey: process.env.ZOOM_MEETING_SDK_KEY
+      sdkKey: process.env.ZOOM_MEETING_SDK_KEY,
+      userEmail: user.zoomEmail || `${uuid}@tether.local` // ✅ include email
     }
 
     if (role === 1 && typeof zak === 'string' && zak.trim() !== '') {
