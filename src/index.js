@@ -77,10 +77,17 @@ async function getUserByUUID(uuid) {
   if (!data.records || data.records.length === 0) return null
 
   const user = data.records[0]
+
+  // ✅ Default to 0 unless role is explicitly 1
+  let role = 0
+  if (user.Role !== undefined && String(user.Role).trim() === '1') {
+    role = 1
+  }
+
   return {
-    role: parseInt(user.Role, 10) === 1 ? 1 : 0, // fallback attendee
-    zoomEmail: user.ZoomEmail || null // needed for ZAK if host
-    // allowedMeetings: user.AllowedMeetings || [] // array of meeting numbers
+    role,
+    zoomEmail: user.ZoomEmail || null
+    // allowedMeetings: user.AllowedMeetings || []
   }
 }
 
