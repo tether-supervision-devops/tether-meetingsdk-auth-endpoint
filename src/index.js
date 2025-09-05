@@ -137,10 +137,28 @@ app.post('/sign', async (req, res) => {
         } else {
           console.warn(`No ZAK for ${user.zoomEmail}, falling back to attendee`)
           role = 0
+
+          // regenerate signature with attendee role
+          oPayload.role = 0
+          signature = KJUR.jws.JWS.sign(
+            'HS256',
+            JSON.stringify(oHeader),
+            JSON.stringify(oPayload),
+            process.env.ZOOM_MEETING_SDK_SECRET
+          )
         }
       } catch (err) {
         console.error(`ZAK fetch failed for ${user.zoomEmail}:`, err)
-        role = 0 // fallback
+        role = 0
+
+        // regenerate signature with attendee role
+        oPayload.role = 0
+        signature = KJUR.jws.JWS.sign(
+          'HS256',
+          JSON.stringify(oHeader),
+          JSON.stringify(oPayload),
+          process.env.ZOOM_MEETING_SDK_SECRET
+        )
       }
     }
     const payload = {
