@@ -98,19 +98,15 @@ app.post('/sign', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unknown user' })
 
     const mn = String(meetingNumber)
-    // if (!user.allowedMeetings.map(String).includes(mn)) {
-    //   return res.status(403).json({ error: 'User not allowed for this meeting' })
-    // }
 
-    // Only fetch ZAK if role is host
-    let role = user.role
+    let role = user.role === 1 ? 1 : 0 // start with DB role
     let zak = null
 
     const iat = Math.floor(Date.now() / 1000)
     const exp = iat + (process.env.SIGN_EXP_SECONDS ? parseInt(process.env.SIGN_EXP_SECONDS) : 3600)
 
     const oHeader = { alg: 'HS256', typ: 'JWT' }
-    const oPayload = {
+    let oPayload = {
       appKey: process.env.ZOOM_MEETING_SDK_KEY,
       sdkKey: process.env.ZOOM_MEETING_SDK_KEY,
       mn,
@@ -128,34 +124,26 @@ app.post('/sign', async (req, res) => {
       process.env.ZOOM_MEETING_SDK_SECRET
     )
 
-    // Only fetch ZAK if role is host
+    // Only fetch ZAK if DB says host
     if (role === 1 && user.zoomEmail) {
       try {
         const maybeZak = await getZak(user.zoomEmail)
 
-        if (maybeZak && typeof maybeZak === 'string' && maybeZak.trim() !== '') {
-          // ✅ valid host
-          zak = maybeZak
+        if (typeof maybeZak === 'string' && maybeZak.trim() !== '') {
+          zak = maybeZak // ✅ host confirmed
         } else {
-          console.warn(`Invalid/empty ZAK for ${user.zoomEmail}, forcing attendee`)
+          console.warn(`Empty/invalid ZAK for ${user.zoomEmail}, demoting to attendee`)
           role = 0
           zak = null
-
-          // regenerate signature with attendee role
-          oPayload.role = 0
-          signature = KJUR.jws.JWS.sign(
-            'HS256',
-            JSON.stringify(oHeader),
-            JSON.stringify(oPayload),
-            process.env.ZOOM_MEETING_SDK_SECRET
-          )
         }
       } catch (err) {
         console.error(`ZAK fetch failed for ${user.zoomEmail}:`, err)
         role = 0
         zak = null
+      }
 
-        // regenerate signature with attendee role
+      // regenerate signature if demoted
+      if (role === 0) {
         oPayload.role = 0
         signature = KJUR.jws.JWS.sign(
           'HS256',
@@ -166,16 +154,17 @@ app.post('/sign', async (req, res) => {
       }
     }
 
-    // build response payload
+    // final response
     const payload = {
       signature,
       sdkKey: process.env.ZOOM_MEETING_SDK_KEY
     }
 
-    // only attach zak if we’re truly host
     if (role === 1 && zak) {
       payload.zak = zak
     }
+
+    console.log(`[SIGN RESPONSE] uuid=${uuid}, role=${role}, hasZak=${!!zak}`)
     return res.json(payload)
   } catch (err) {
     console.error('Sign error:', err.message || err)
