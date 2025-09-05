@@ -103,7 +103,7 @@ app.post('/sign', async (req, res) => {
     // }
 
     // Only fetch ZAK if role is host
-    let role = 0
+    let role = user.role
     let zak = null
 
     const iat = Math.floor(Date.now() / 1000)
