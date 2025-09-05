@@ -200,14 +200,18 @@ app.post('/sign', async (req, res) => {
       console.log('[SIGN] Skipping ZAK fetch (role not host or no zoomEmail)')
     }
 
+    // build payload
     const payload = {
       signature,
       sdkKey: process.env.ZOOM_MEETING_SDK_KEY
     }
+
     if (role === 1 && typeof zak === 'string' && zak.trim() !== '') {
       payload.zak = zak
       console.log('[SIGN] Returning ZAK in payload')
     } else {
+      // 🔒 forcefully strip zak if invalid
+      delete payload.zak
       console.log('[SIGN] No ZAK in payload')
     }
 
