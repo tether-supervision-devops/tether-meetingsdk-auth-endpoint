@@ -47,7 +47,7 @@ app.use(express.json({ limit: '32kb' }))
 // Rate limiting (per IP)
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 min
-  max: 60, // 60 requests / 10 min
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false
 })
@@ -78,8 +78,7 @@ async function getUserByUUID(uuid) {
   })
 
   if (!res.ok) {
-    const txt = await res.text().catch(() => '')
-    console.error('[Adalo] Lookup failed:', txt)
+    console.error('[Adalo] Lookup failed:', await res.text())
     return null
   }
 
@@ -95,18 +94,11 @@ async function getUserByUUID(uuid) {
     UUID: user.UUID,
     Email: user.Email,
     Role: user.Role,
-    AppRole: user['App Role'],
     ZoomEmail: user.ZoomEmail
   })
 
-  // Normalize role: only host if Role === 1 OR App Role includes 1
-  let role = 0
-  if (user.Role !== undefined && Number(user.Role) === 1) {
-    role = 1
-  } else if (Array.isArray(user['App Role']) && user['App Role'].includes(1)) {
-    role = 1
-  }
-
+  // ✅ Only use Role (ignore AppRole)
+  const role = user.Role !== undefined && Number(user.Role) === 1 ? 1 : 0
   const zoomEmail = user.ZoomEmail && String(user.ZoomEmail).trim() ? String(user.ZoomEmail).trim() : null
 
   console.log(`[Adalo] Normalized role=${role}, zoomEmailPresent=${!!zoomEmail}`)
@@ -200,13 +192,12 @@ app.post('/sign', async (req, res) => {
       console.log('[SIGN] Skipping ZAK fetch (role not host or no zoomEmail)')
     }
 
-    // ✅ Build payload without zak by default
+    // Build payload (no zak by default)
     const payload = {
       signature,
       sdkKey: process.env.ZOOM_MEETING_SDK_KEY
     }
 
-    // ✅ Only attach zak if it's a valid, non-empty string
     if (role === 1 && typeof zak === 'string' && zak.trim() !== '') {
       payload.zak = zak
       console.log('[SIGN] Returning ZAK in payload')
@@ -215,7 +206,6 @@ app.post('/sign', async (req, res) => {
     }
 
     console.log(`[SIGN RESPONSE] uuid=${uuid}, finalRole=${role}, hasZak=${!!zak}`)
-    // Use res.json with replacer to strip undefined/null just in case
     return res.json(JSON.parse(JSON.stringify(payload)))
   } catch (err) {
     console.error('[SIGN] Error:', err.message || err)
