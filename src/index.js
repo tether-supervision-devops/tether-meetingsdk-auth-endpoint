@@ -74,22 +74,37 @@ async function getUserByUUID(uuid) {
     console.error('[Adalo] Lookup failed', await res.text())
     return null
   }
-  const data = await res.json()
-  console.log('[Adalo] Raw response:', JSON.stringify(data, null, 2))
 
+  const data = await res.json()
   if (!data.records || data.records.length === 0) {
     console.warn('[Adalo] No records found for UUID:', uuid)
     return null
   }
 
   const user = data.records[0]
-  console.log('[Adalo] User record:', user)
+  console.log('[Adalo] Relevant user record:', {
+    id: user.id,
+    Email: user.Email,
+    Role: user.Role,
+    AppRole: user['App Role'],
+    ZoomEmail: user.ZoomEmail
+  })
 
-  // Normalize role
-  const role = user.Role !== undefined && String(user.Role).trim() === '1' ? 1 : 0
+  // Normalize role: support either Role or App Role array
+  let role = 0
+  if (user.Role !== undefined && Number(user.Role) === 1) {
+    role = 1
+  } else if (Array.isArray(user['App Role']) && user['App Role'].includes(1)) {
+    role = 1
+  }
+
   const zoomEmail = user.ZoomEmail && String(user.ZoomEmail).trim() ? user.ZoomEmail : null
 
-  console.log(`[Adalo] Normalized role=${role} (raw Role=${user.Role}), zoomEmail=${zoomEmail}`)
+  console.log(
+    `[Adalo] Normalized role=${role}, raw Role=${user.Role}, raw AppRole=${JSON.stringify(
+      user['App Role']
+    )}, zoomEmail=${zoomEmail}`
+  )
 
   return { role, zoomEmail }
 }
